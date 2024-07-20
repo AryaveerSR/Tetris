@@ -80,7 +80,10 @@ void draw_block(State *state, Uint8 x, Uint8 y)
 
 void draw_blocks(State *state)
 {
-    Uint16 board[GRID_HEIGHT] = state->board_data;
+    Uint16 board[GRID_HEIGHT];
+
+    memcpy(&board, state->board_data, sizeof(Uint16) * GRID_HEIGHT);
+
     board[state->piece_y] |= (state->piece_data & 0xf) << state->piece_x;
     board[state->piece_y + 1] |= ((state->piece_data & 0xf0) >> 4) << state->piece_x;
     board[state->piece_y + 2] |= ((state->piece_data & 0xf00) >> 8) << state->piece_x;
