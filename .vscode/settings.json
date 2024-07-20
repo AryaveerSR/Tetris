@@ -2,6 +2,7 @@
     "files.associations": {
         "terminal.h": "c",
         "unistd.h": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "sdl.h": "c"
     }
 }

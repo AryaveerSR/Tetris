@@ -3,7 +3,7 @@ NAME = tetris
 SRC_DIR = src
 OUT_DIR = bin
 
-CFLAGS = -Wall -Werror -Wextra -pedantic -fsanitize=address
+CFLAGS = -Wall -Werror -Wextra -pedantic -fsanitize=address -lSDL2
 
 build: clean
 #	@gcc $(SRC_DIR)/*.c $(SRC_DIR)/*.h -o $(OUT_DIR)/$(NAME) $(CFLAGS)
