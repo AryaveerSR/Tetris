@@ -17,6 +17,8 @@ typedef struct
     SDL_Renderer *renderer;
     SDL_Window *window;
 
+    // Data related to the current piece being dropped
+    //
     Uint8 piece_data;
     Uint8 piece_x;
     Uint8 piece_y;
@@ -31,17 +33,11 @@ bool process_keydown(State *state, SDL_KeyboardEvent *key)
     switch (key->keysym.sym)
     {
     case SDLK_a:
-        if (state->piece_x != 0)
-        {
-            state->piece_x -= 1;
-        }
+        shift_left(state);
         return true;
 
     case SDLK_d:
-        if (state->piece_x != (GRID_WIDTH - 1))
-        {
-            state->piece_x += 1;
-        }
+        shift_right(state);
         return true;
 
     default:
@@ -182,9 +178,31 @@ void refresh_screen(State *state)
 
 void init_board(State *state)
 {
+    // Having 4 hidden rows below the visible ones allows us to reuse
+    // collision checking code to check if the blocks are touching the bottom,
+    // and avoids nasty overflow checks.
+    //
     for (int i = GRID_HEIGHT - 4; i < GRID_HEIGHT; i++)
     {
         state->board_data[i] = 0xffff;
+    }
+}
+
+void shift_left(State *state)
+{
+    // todo: Do not collide
+    if (state->piece_x != 0)
+    {
+        state->piece_x -= 1;
+    }
+}
+
+void shift_right(State *state)
+{
+    // todo: Do not collide
+    if (state->piece_x != (GRID_WIDTH - 1))
+    {
+        state->piece_x += 1;
     }
 }
 
@@ -203,19 +221,23 @@ void update(State *state)
         return;
     }
 
+    // Increment the piece y in order to check for overlaps,
+    // indirectly checking for collisions.
+    //
     state->piece_y += 1;
 
     // If the currently falling piece has collided
     //
     bool found_collision = false;
 
-    // Check all 4 rows of the piece data for any collisions.
+    // Check all 4 rows of the piece data for any overlaps.
     //
     for (int i = 0; i < 4; i++)
     {
-        Uint16 row_intersection =
-            state->board_data[state->piece_y + i] &
-            (((state->piece_data & (0xf << 4 * i)) >> 4 * i) << state->piece_x);
+        Uint16 board_row = state->board_data[state->piece_y + i];
+        Uint16 piece_row = (((state->piece_data & (0xf << 4 * i)) >> 4 * i) << state->piece_x);
+
+        Uint16 row_intersection = board_row & piece_row;
 
         if (row_intersection != 0)
         {
@@ -224,14 +246,14 @@ void update(State *state)
         }
     }
 
-    // If the piece is mid-air, return the function.
+    // If the piece is in mid-air, return the function.
     //
     if (!found_collision)
     {
         return;
     }
 
-    // Since the piece is overlapping, undo last move and turn the dropping
+    // Since the piece is overlapping, undo the last move and turn the dropping
     // piece into a fixed piece in the board.
     //
     state->piece_y -= 1;
@@ -240,13 +262,6 @@ void update(State *state)
     //
     for (int i = 0; i < 4; i++)
     {
-        // Only copy over those blocks which are above the bottom.
-        //
-        if (state->piece_y + i >= GRID_HEIGHT)
-        {
-            break;
-        }
-
         state->board_data[state->piece_y + i] |=
             ((state->piece_data & (0xf << 4 * i)) >> 4 * i) << state->piece_x;
     }
