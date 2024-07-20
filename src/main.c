@@ -20,7 +20,7 @@ typedef struct
     Uint8 piece_x;
     Uint8 piece_y;
 
-    Uint16 board_data;
+    Uint16 board_data[GRID_HEIGHT];
 } State;
 
 void process_input()
@@ -41,11 +41,12 @@ void process_input()
     }
 }
 
+#pragma region Rendering
+
 void draw_grid(State *state)
 {
-    SDL_SetRenderDrawColor(state->renderer, 120, 120, 120, SDL_ALPHA_OPAQUE);
-
     // Vertical lines
+    //
     for (int i = 1; i < GRID_WIDTH; i++)
     {
         int x_offset = i * BLOCK_WIDTH;
@@ -55,6 +56,7 @@ void draw_grid(State *state)
     }
 
     // Horizontal lines
+    //
     for (int i = 1; i < GRID_HEIGHT; i++)
     {
         int y_offset = i * BLOCK_HEIGHT;
@@ -64,15 +66,56 @@ void draw_grid(State *state)
     }
 }
 
+void draw_block(State *state, Uint8 x, Uint8 y)
+{
+    SDL_Rect rect;
+
+    rect.x = x * BLOCK_WIDTH;
+    rect.y = y * BLOCK_HEIGHT;
+    rect.w = BLOCK_WIDTH;
+    rect.h = BLOCK_HEIGHT;
+
+    SDL_RenderFillRect(state->renderer, &rect);
+}
+
+void draw_blocks(State *state)
+{
+    Uint16 board[GRID_HEIGHT] = state->board_data;
+    board[state->piece_y] |= (state->piece_data & 0xf) << state->piece_x;
+    board[state->piece_y + 1] |= ((state->piece_data & 0xf0) >> 4) << state->piece_x;
+    board[state->piece_y + 2] |= ((state->piece_data & 0xf00) >> 8) << state->piece_x;
+    board[state->piece_y + 3] |= ((state->piece_data & 0xf000) >> 12) << state->piece_x;
+
+    for (int j = 0; j < GRID_HEIGHT; j++)
+    {
+        Uint16 row = board[j];
+
+        for (int i = 0; i < GRID_WIDTH; i++)
+        {
+            Uint16 masked_bit = row & (1 << i);
+
+            if (masked_bit != 0)
+            {
+                draw_block(state, i, j);
+            }
+        }
+    }
+}
+
 void refresh_screen(State *state)
 {
     SDL_SetRenderDrawColor(state->renderer, 12, 12, 12, SDL_ALPHA_OPAQUE);
     SDL_RenderClear(state->renderer);
 
+    SDL_SetRenderDrawColor(state->renderer, 120, 120, 120, SDL_ALPHA_OPAQUE);
+
     draw_grid(state);
+    draw_blocks(state);
 
     SDL_RenderPresent(state->renderer);
 }
+
+#pragma endregion Rendering
 
 void update(State *state)
 {
@@ -94,7 +137,7 @@ int main()
 {
     atexit(SDL_Quit);
 
-    State state;
+    State state = {};
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0)
     {
@@ -118,8 +161,6 @@ int main()
         printf("Failed to create renderer.\n%s", SDL_GetError());
         exit(1);
     }
-
-    state.board_data = 0;
 
     while (true)
     {

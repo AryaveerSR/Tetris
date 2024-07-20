@@ -3,7 +3,7 @@ NAME = tetris
 SRC_DIR = src
 OUT_DIR = bin
 
-DEV_FLAGS = -g -Wall -Wextra -pedantic -fsanitize=address
+DEV_FLAGS = -g -Wall -Wextra -pedantic -Wno-unknown-pragmas -fsanitize=address
 CFLAGS = -lSDL2
 
 build: clean
