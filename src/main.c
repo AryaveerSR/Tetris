@@ -23,7 +23,32 @@ typedef struct
     Uint16 board_data[GRID_HEIGHT];
 } State;
 
-void process_input()
+#pragma region Process Inputs
+
+void process_keydown(State *state, SDL_KeyboardEvent *key)
+{
+    switch (key->keysym.sym)
+    {
+    case SDLK_a:
+        if (state->piece_x != 0)
+        {
+            state->piece_x -= 1;
+        }
+        break;
+
+    case SDLK_d:
+        if (state->piece_x != (GRID_WIDTH - 1))
+        {
+            state->piece_x += 1;
+        }
+        break;
+
+    default:
+        break;
+    }
+}
+
+void process_input(State *state)
 {
     SDL_Event event;
 
@@ -35,14 +60,22 @@ void process_input()
             exit(0);
             break;
 
+        case SDL_KEYDOWN:
+            process_keydown(state, &event.key);
+            break;
+
         default:
             break;
         }
     }
 }
 
+#pragma endregion Process Inputs
+
 #pragma region Rendering
 
+// Draw the grid for the blocks.
+//
 void draw_grid(State *state)
 {
     // Vertical lines
@@ -66,6 +99,8 @@ void draw_grid(State *state)
     }
 }
 
+// Draws a single block at `x` and `y` (grid) coordinates.
+//
 void draw_block(State *state, Uint8 x, Uint8 y)
 {
     SDL_Rect rect;
@@ -78,12 +113,19 @@ void draw_block(State *state, Uint8 x, Uint8 y)
     SDL_RenderFillRect(state->renderer, &rect);
 }
 
+// Draws the blocks on the screen.
+//
 void draw_blocks(State *state)
 {
     Uint16 board[GRID_HEIGHT];
 
     memcpy(&board, state->board_data, sizeof(Uint16) * GRID_HEIGHT);
 
+    // Merge the board blocks with current piece blocks.
+    //
+    // Since they are of different dimensions, we OR the piece blocks into
+    // the board row by row.
+    //
     board[state->piece_y] |= (state->piece_data & 0xf) << state->piece_x;
     board[state->piece_y + 1] |= ((state->piece_data & 0xf0) >> 4) << state->piece_x;
     board[state->piece_y + 2] |= ((state->piece_data & 0xf00) >> 8) << state->piece_x;
@@ -105,6 +147,8 @@ void draw_blocks(State *state)
     }
 }
 
+// Main draw function called from the game loop.
+//
 void refresh_screen(State *state)
 {
     SDL_SetRenderDrawColor(state->renderer, 12, 12, 12, SDL_ALPHA_OPAQUE);
@@ -119,6 +163,8 @@ void refresh_screen(State *state)
 }
 
 #pragma endregion Rendering
+
+#pragma region Logic
 
 void update(State *state)
 {
@@ -135,6 +181,8 @@ void update(State *state)
     // todo: update piece position
     // todo: check for collision
 }
+
+#pragma endregion Logic
 
 int main()
 {
@@ -167,7 +215,7 @@ int main()
 
     while (true)
     {
-        process_input();
+        process_input(&state);
         update(&state);
         refresh_screen(&state);
 
