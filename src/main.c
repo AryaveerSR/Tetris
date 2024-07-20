@@ -137,7 +137,7 @@ int main()
 {
     atexit(SDL_Quit);
 
-    State state = {};
+    State state = {0};
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0)
     {
