@@ -6,10 +6,11 @@
 #define SCREEN_HEIGHT 600
 
 #define GRID_WIDTH 12
-#define GRID_HEIGHT 24
+#define GRID_VISIBLE_HEIGHT 24
+#define GRID_HEIGHT GRID_VISIBLE_HEIGHT + 8
 
 const Uint16 BLOCK_WIDTH = SCREEN_WIDTH / GRID_WIDTH;
-const Uint16 BLOCK_HEIGHT = SCREEN_HEIGHT / GRID_HEIGHT;
+const Uint16 BLOCK_HEIGHT = SCREEN_HEIGHT / GRID_VISIBLE_HEIGHT;
 
 typedef struct
 {
@@ -25,7 +26,7 @@ typedef struct
 
 #pragma region Process Inputs
 
-void process_keydown(State *state, SDL_KeyboardEvent *key)
+bool process_keydown(State *state, SDL_KeyboardEvent *key)
 {
     switch (key->keysym.sym)
     {
@@ -34,23 +35,24 @@ void process_keydown(State *state, SDL_KeyboardEvent *key)
         {
             state->piece_x -= 1;
         }
-        break;
+        return true;
 
     case SDLK_d:
         if (state->piece_x != (GRID_WIDTH - 1))
         {
             state->piece_x += 1;
         }
-        break;
+        return true;
 
     default:
-        break;
+        return false;
     }
 }
 
 void process_input(State *state)
 {
     SDL_Event event;
+    bool has_processed_movement = false;
 
     while (SDL_PollEvent(&event))
     {
@@ -61,7 +63,10 @@ void process_input(State *state)
             break;
 
         case SDL_KEYDOWN:
-            process_keydown(state, &event.key);
+            if (!has_processed_movement)
+            {
+                has_processed_movement = process_keydown(state, &event.key);
+            }
             break;
 
         default:
@@ -90,7 +95,7 @@ void draw_grid(State *state)
 
     // Horizontal lines
     //
-    for (int i = 1; i < GRID_HEIGHT; i++)
+    for (int i = 1; i < GRID_VISIBLE_HEIGHT; i++)
     {
         int y_offset = i * BLOCK_HEIGHT;
 
@@ -126,14 +131,23 @@ void draw_blocks(State *state)
     // Since they are of different dimensions, we OR the piece blocks into
     // the board row by row.
     //
-    board[state->piece_y] |= (state->piece_data & 0xf) << state->piece_x;
-    board[state->piece_y + 1] |= ((state->piece_data & 0xf0) >> 4) << state->piece_x;
-    board[state->piece_y + 2] |= ((state->piece_data & 0xf00) >> 8) << state->piece_x;
-    board[state->piece_y + 3] |= ((state->piece_data & 0xf000) >> 12) << state->piece_x;
-
-    for (int j = 0; j < GRID_HEIGHT; j++)
+    // The if check ensures that we do not access out-of-bounds in a situation where
+    // a part of the piece grid is beyond the game grid.
+    //
+    for (int i = 0; i < 4; i++)
     {
-        Uint16 row = board[j];
+        if (state->piece_y + i >= GRID_HEIGHT)
+        {
+            break;
+        }
+
+        board[state->piece_y + i] |=
+            ((state->piece_data & (0xf << 4 * i)) >> 4 * i) << state->piece_x;
+    }
+
+    for (int j = 0; j < GRID_VISIBLE_HEIGHT; j++)
+    {
+        Uint16 row = board[j + 4];
 
         for (int i = 0; i < GRID_WIDTH; i++)
         {
@@ -166,8 +180,19 @@ void refresh_screen(State *state)
 
 #pragma region Logic
 
+void init_board(State *state)
+{
+    for (int i = GRID_HEIGHT - 4; i < GRID_HEIGHT; i++)
+    {
+        state->board_data[i] = 0xffff;
+    }
+}
+
 void update(State *state)
 {
+    // If there is currently no piece dropping, create
+    // a new one and return.
+    //
     if (state->piece_data == 0)
     {
         state->piece_x = 0;
@@ -178,8 +203,57 @@ void update(State *state)
         return;
     }
 
-    // todo: update piece position
-    // todo: check for collision
+    state->piece_y += 1;
+
+    // If the currently falling piece has collided
+    //
+    bool found_collision = false;
+
+    // Check all 4 rows of the piece data for any collisions.
+    //
+    for (int i = 0; i < 4; i++)
+    {
+        Uint16 row_intersection =
+            state->board_data[state->piece_y + i] &
+            (((state->piece_data & (0xf << 4 * i)) >> 4 * i) << state->piece_x);
+
+        if (row_intersection != 0)
+        {
+            found_collision = true;
+            break;
+        }
+    }
+
+    // If the piece is mid-air, return the function.
+    //
+    if (!found_collision)
+    {
+        return;
+    }
+
+    // Since the piece is overlapping, undo last move and turn the dropping
+    // piece into a fixed piece in the board.
+    //
+    state->piece_y -= 1;
+
+    // Merge the piece with the board.
+    //
+    for (int i = 0; i < 4; i++)
+    {
+        // Only copy over those blocks which are above the bottom.
+        //
+        if (state->piece_y + i >= GRID_HEIGHT)
+        {
+            break;
+        }
+
+        state->board_data[state->piece_y + i] |=
+            ((state->piece_data & (0xf << 4 * i)) >> 4 * i) << state->piece_x;
+    }
+
+    // Trigger another piece to be dropped
+    //
+    state->piece_data = 0;
 }
 
 #pragma endregion Logic
@@ -213,13 +287,15 @@ int main()
         exit(1);
     }
 
+    init_board(&state);
+
     while (true)
     {
         process_input(&state);
         update(&state);
         refresh_screen(&state);
 
-        SDL_Delay(16);
+        SDL_Delay(300);
     }
 
     return 0;
