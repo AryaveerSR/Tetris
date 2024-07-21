@@ -267,8 +267,6 @@ bool find_overlap(State *state)
 
 void shift_left(State *state)
 {
-    // todo: Check collision for all types
-    //
     //  Do not collide with the left wall.
     //
     if (state->piece_x != 0)
