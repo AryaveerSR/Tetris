@@ -226,6 +226,22 @@ void init_board(State *state)
     }
 }
 
+void reset_state(State *state)
+{
+    state->game_over = false;
+    state->piece_data = 0;
+
+    for (int i = 0 - 4; i < GRID_HEIGHT - 4; i++)
+    {
+        state->board_data[i] = 0;
+    }
+
+    for (int i = GRID_HEIGHT - 4; i < GRID_HEIGHT; i++)
+    {
+        state->board_data[i] = 0xffff;
+    }
+}
+
 bool find_overlap(State *state)
 {
     // Check all 4 rows of the piece data for any overlaps.
@@ -348,21 +364,31 @@ void update(State *state)
 
 #pragma region Process Inputs
 
+// Returns whether the keypress was related to movement.
+//
 bool process_keydown(State *state, SDL_KeyboardEvent *key)
 {
     switch (key->keysym.sym)
     {
+    case SDLK_LEFT:
     case SDLK_a:
         shift_left(state);
         return true;
 
+    case SDLK_RIGHT:
     case SDLK_d:
         shift_right(state);
         return true;
 
+    case SDLK_r:
+        reset_state(state);
+        break;
+
     default:
-        return false;
+        break;
     }
+
+    return false;
 }
 
 void process_input(State *state)
