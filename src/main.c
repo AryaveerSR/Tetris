@@ -163,6 +163,8 @@ void render_message_texture(State *state)
     TTF_Quit();
 }
 
+// Display the game over screen.
+//
 void game_over(State *state)
 {
     if (state->message_texture == NULL)
@@ -194,11 +196,16 @@ void refresh_screen(State *state)
     SDL_RenderClear(state->renderer);
 
     SDL_SetRenderDrawColor(state->renderer, 180, 180, 180, SDL_ALPHA_OPAQUE);
-    /*
+
     draw_grid(state);
     draw_blocks(state);
-    */
-    game_over(state);
+
+    // Draw the "Game over" popup over the playing field.
+    //
+    if (state->game_over)
+    {
+        game_over(state);
+    }
 
     SDL_RenderPresent(state->renderer);
 }
@@ -219,7 +226,7 @@ void init_board(State *state)
     }
 }
 
-bool find_collision(State *state)
+bool find_overlap(State *state)
 {
     // Check all 4 rows of the piece data for any overlaps.
     //
@@ -250,7 +257,7 @@ void shift_left(State *state)
 
         // If there is a block on the left, undo the move.
         //
-        if (find_collision(state))
+        if (find_overlap(state))
         {
             state->piece_x += 1;
         }
@@ -267,7 +274,7 @@ void shift_right(State *state)
 
         // If there is a block on the right, undo the move.
         //
-        if (find_collision(state))
+        if (find_overlap(state))
         {
             state->piece_x -= 1;
         }
@@ -276,6 +283,13 @@ void shift_right(State *state)
 
 void update(State *state)
 {
+    // Do nothing if the game is over.
+    //
+    if (state->game_over)
+    {
+        return;
+    }
+
     // If there is currently no piece dropping, create
     // a new one and return.
     //
@@ -296,7 +310,7 @@ void update(State *state)
 
     // If the piece is in mid-air, return the function.
     //
-    if (!find_collision(state))
+    if (!find_overlap(state))
     {
         return;
     }
@@ -312,6 +326,17 @@ void update(State *state)
     {
         state->board_data[state->piece_y + i] |=
             ((state->piece_data & (0xf << 4 * i)) >> 4 * i) << state->piece_x;
+    }
+
+    // Checks if the game is over by checking the top 4 hidden rows for pieces.
+    //
+    for (int i = 0; i < 4; i++)
+    {
+        if (state->board_data[i] != 0)
+        {
+            state->game_over = true;
+            return;
+        }
     }
 
     // Trigger another piece to be dropped
