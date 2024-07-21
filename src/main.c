@@ -26,53 +26,6 @@ typedef struct
     Uint16 board_data[GRID_HEIGHT];
 } State;
 
-#pragma region Process Inputs
-
-bool process_keydown(State *state, SDL_KeyboardEvent *key)
-{
-    switch (key->keysym.sym)
-    {
-    case SDLK_a:
-        shift_left(state);
-        return true;
-
-    case SDLK_d:
-        shift_right(state);
-        return true;
-
-    default:
-        return false;
-    }
-}
-
-void process_input(State *state)
-{
-    SDL_Event event;
-    bool has_processed_movement = false;
-
-    while (SDL_PollEvent(&event))
-    {
-        switch (event.type)
-        {
-        case SDL_QUIT:
-            exit(0);
-            break;
-
-        case SDL_KEYDOWN:
-            if (!has_processed_movement)
-            {
-                has_processed_movement = process_keydown(state, &event.key);
-            }
-            break;
-
-        default:
-            break;
-        }
-    }
-}
-
-#pragma endregion Process Inputs
-
 #pragma region Rendering
 
 // Draw the grid for the blocks.
@@ -188,21 +141,58 @@ void init_board(State *state)
     }
 }
 
+bool find_collision(State *state)
+{
+    // Check all 4 rows of the piece data for any overlaps.
+    //
+    for (int i = 0; i < 4; i++)
+    {
+        Uint16 board_row = state->board_data[state->piece_y + i];
+        Uint16 piece_row = (((state->piece_data & (0xf << 4 * i)) >> 4 * i) << state->piece_x);
+
+        Uint16 row_intersection = board_row & piece_row;
+
+        if (row_intersection != 0)
+        {
+            return true;
+            break;
+        }
+    }
+
+    return false;
+}
+
 void shift_left(State *state)
 {
-    // todo: Do not collide
+    // Do not collide with the left wall.
+    //
     if (state->piece_x != 0)
     {
         state->piece_x -= 1;
+
+        // If there is a block on the left, undo the move.
+        //
+        if (find_collision(state))
+        {
+            state->piece_x += 1;
+        }
     }
 }
 
 void shift_right(State *state)
 {
-    // todo: Do not collide
+    // Do not collide with the right wall.
+    //
     if (state->piece_x != (GRID_WIDTH - 1))
     {
         state->piece_x += 1;
+
+        // If there is a block on the right, undo the move.
+        //
+        if (find_collision(state))
+        {
+            state->piece_x -= 1;
+        }
     }
 }
 
@@ -226,29 +216,9 @@ void update(State *state)
     //
     state->piece_y += 1;
 
-    // If the currently falling piece has collided
-    //
-    bool found_collision = false;
-
-    // Check all 4 rows of the piece data for any overlaps.
-    //
-    for (int i = 0; i < 4; i++)
-    {
-        Uint16 board_row = state->board_data[state->piece_y + i];
-        Uint16 piece_row = (((state->piece_data & (0xf << 4 * i)) >> 4 * i) << state->piece_x);
-
-        Uint16 row_intersection = board_row & piece_row;
-
-        if (row_intersection != 0)
-        {
-            found_collision = true;
-            break;
-        }
-    }
-
     // If the piece is in mid-air, return the function.
     //
-    if (!found_collision)
+    if (!find_collision(state))
     {
         return;
     }
@@ -272,6 +242,53 @@ void update(State *state)
 }
 
 #pragma endregion Logic
+
+#pragma region Process Inputs
+
+bool process_keydown(State *state, SDL_KeyboardEvent *key)
+{
+    switch (key->keysym.sym)
+    {
+    case SDLK_a:
+        shift_left(state);
+        return true;
+
+    case SDLK_d:
+        shift_right(state);
+        return true;
+
+    default:
+        return false;
+    }
+}
+
+void process_input(State *state)
+{
+    SDL_Event event;
+    bool has_processed_movement = false;
+
+    while (SDL_PollEvent(&event))
+    {
+        switch (event.type)
+        {
+        case SDL_QUIT:
+            exit(0);
+            break;
+
+        case SDL_KEYDOWN:
+            if (!has_processed_movement)
+            {
+                has_processed_movement = process_keydown(state, &event.key);
+            }
+            break;
+
+        default:
+            break;
+        }
+    }
+}
+
+#pragma endregion Process Inputs
 
 int main()
 {
