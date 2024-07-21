@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 
 #define SCREEN_WIDTH 300
 #define SCREEN_HEIGHT 600
@@ -14,6 +15,8 @@ const Uint16 BLOCK_HEIGHT = SCREEN_HEIGHT / GRID_VISIBLE_HEIGHT;
 
 typedef struct
 {
+    // SDL Window and renderer.
+    //
     SDL_Renderer *renderer;
     SDL_Window *window;
 
@@ -23,7 +26,17 @@ typedef struct
     Uint8 piece_x;
     Uint8 piece_y;
 
+    // The board stored as an array of rows.
+    //
     Uint16 board_data[GRID_HEIGHT];
+
+    // Game over state.
+    // The texture stores the rendered text, and the
+    // integers are its width and height.
+    //
+    bool game_over;
+    SDL_Texture *message_texture;
+    int message_w, message_h;
 } State;
 
 #pragma region Rendering
@@ -110,6 +123,69 @@ void draw_blocks(State *state)
     }
 }
 
+// Render the "Game over" text only once, and reuse
+// the resulting texture to save performance.
+//
+void render_message_texture(State *state)
+{
+    if (TTF_Init() == -1)
+    {
+        printf("Failed to init SDL TTF.\n%s\n\n", TTF_GetError());
+        exit(1);
+    }
+
+    TTF_Font *font = TTF_OpenFont("assets/font.ttf", 32);
+
+    if (font == NULL)
+    {
+        printf("Failed to load font.\n%s\n\n", TTF_GetError());
+        exit(1);
+    }
+
+    SDL_Color color = {0, 0, 0, SDL_ALPHA_OPAQUE};
+
+    SDL_Surface *message_surface = TTF_RenderText_Solid(font, "Game over.", color);
+
+    if (message_surface == NULL)
+    {
+        printf("Failed to render text surface.\n%s\n\n", TTF_GetError());
+        exit(1);
+    }
+
+    SDL_Texture *message_texture = SDL_CreateTextureFromSurface(state->renderer, message_surface);
+
+    state->message_texture = message_texture;
+    state->message_w = message_surface->w;
+    state->message_h = message_surface->h;
+
+    SDL_FreeSurface(message_surface);
+
+    TTF_Quit();
+}
+
+void game_over(State *state)
+{
+    if (state->message_texture == NULL)
+    {
+        render_message_texture(state);
+    }
+
+    SDL_Rect message_rect;
+    message_rect.x = (SCREEN_WIDTH - state->message_w) / 2;
+    message_rect.y = (SCREEN_HEIGHT - state->message_h) / 2;
+    message_rect.w = state->message_w;
+    message_rect.h = state->message_h;
+
+    SDL_Rect popup_rect;
+    popup_rect.w = state->message_w + 32;
+    popup_rect.h = state->message_h + 16;
+    popup_rect.x = (SCREEN_WIDTH - popup_rect.w) / 2;
+    popup_rect.y = (SCREEN_HEIGHT - popup_rect.h) / 2;
+
+    SDL_RenderFillRect(state->renderer, &popup_rect);
+    SDL_RenderCopy(state->renderer, state->message_texture, NULL, &message_rect);
+}
+
 // Main draw function called from the game loop.
 //
 void refresh_screen(State *state)
@@ -117,10 +193,12 @@ void refresh_screen(State *state)
     SDL_SetRenderDrawColor(state->renderer, 12, 12, 12, SDL_ALPHA_OPAQUE);
     SDL_RenderClear(state->renderer);
 
-    SDL_SetRenderDrawColor(state->renderer, 120, 120, 120, SDL_ALPHA_OPAQUE);
-
+    SDL_SetRenderDrawColor(state->renderer, 180, 180, 180, SDL_ALPHA_OPAQUE);
+    /*
     draw_grid(state);
     draw_blocks(state);
+    */
+    game_over(state);
 
     SDL_RenderPresent(state->renderer);
 }
@@ -298,7 +376,7 @@ int main()
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0)
     {
-        printf("Failed to init SDL.\n%s", SDL_GetError());
+        printf("Failed to init SDL.\n%s\n\n", SDL_GetError());
         exit(1);
     }
 
@@ -307,7 +385,7 @@ int main()
 
     if (state.window == NULL)
     {
-        printf("Failed to create window.\n%s", SDL_GetError());
+        printf("Failed to create window.\n%s\n\n", SDL_GetError());
         exit(1);
     }
 
@@ -315,7 +393,7 @@ int main()
 
     if (state.renderer == NULL)
     {
-        printf("Failed to create renderer.\n%s", SDL_GetError());
+        printf("Failed to create renderer.\n%s\n\n", SDL_GetError());
         exit(1);
     }
 
@@ -330,5 +408,5 @@ int main()
         SDL_Delay(300);
     }
 
-    return 0;
+    exit(0);
 }
