@@ -10,6 +10,8 @@
 #define GRID_VISIBLE_HEIGHT 24
 #define GRID_HEIGHT GRID_VISIBLE_HEIGHT + 8
 
+#define FINISHED_ROW (0xffff >> (16 - GRID_WIDTH))
+
 const Uint16 BLOCK_WIDTH = SCREEN_WIDTH / GRID_WIDTH;
 const Uint16 BLOCK_HEIGHT = SCREEN_HEIGHT / GRID_VISIBLE_HEIGHT;
 
@@ -231,7 +233,7 @@ void reset_state(State *state)
     state->game_over = false;
     state->piece_data = 0;
 
-    for (int i = 0 - 4; i < GRID_HEIGHT - 4; i++)
+    for (int i = 0; i < GRID_HEIGHT - 4; i++)
     {
         state->board_data[i] = 0;
     }
@@ -265,7 +267,9 @@ bool find_overlap(State *state)
 
 void shift_left(State *state)
 {
-    // Do not collide with the left wall.
+    // todo: Check collision for all types
+    //
+    //  Do not collide with the left wall.
     //
     if (state->piece_x != 0)
     {
@@ -284,7 +288,7 @@ void shift_right(State *state)
 {
     // Do not collide with the right wall.
     //
-    if (state->piece_x != (GRID_WIDTH - 1))
+    if (state->piece_x != (GRID_WIDTH - 2))
     {
         state->piece_x += 1;
 
@@ -352,6 +356,22 @@ void update(State *state)
         {
             state->game_over = true;
             return;
+        }
+    }
+
+    // See if any rows are fully completed and can be cleared.
+    //
+    for (int i = GRID_HEIGHT - 5; i > 3; i--)
+    {
+        if (state->board_data[i] == FINISHED_ROW)
+        {
+            for (int j = i; j > 3; j--)
+            {
+                state->board_data[i] = state->board_data[i - 1];
+                state->board_data[i - 1] = 0;
+            }
+
+            i--;
         }
     }
 
@@ -456,7 +476,7 @@ int main()
         update(&state);
         refresh_screen(&state);
 
-        SDL_Delay(300);
+        SDL_Delay(100);
     }
 
     exit(0);
